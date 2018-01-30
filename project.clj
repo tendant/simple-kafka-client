@@ -1,4 +1,4 @@
-(defproject simple-kafka-client "0.1.0"
+(defproject simple-kafka-client "0.1.1-SNAPSHOT"
   :description "Not another kafka client libary, instead this is a collection of functions for building kafka client in Clojure."
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
