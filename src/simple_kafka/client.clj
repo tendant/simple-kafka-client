@@ -55,7 +55,9 @@
 
 (def ^:private utf-8 (java.nio.charset.Charset/forName "utf-8"))
 
-(defn deserialize [^bytes data]
+(defn deserialize
+  "Deserialize bytes data as JSON, when failure, it will log as error and return nil"
+  [^bytes data]
   (if (and data (pos? (alength data)))
     (try
       (-> (ByteArrayInputStream. data)
