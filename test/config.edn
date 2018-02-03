@@ -1,0 +1,2 @@
+{:kafka-bootstrap-servers "localhost:9092"
+ :kafka-command-line-dir "/Users/bd/Workspace/kafka_2.11-0.11.0.0"}
