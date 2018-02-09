@@ -64,7 +64,7 @@
     (if (or (not (not-empty assignments))
             (not-empty error))
       (log/errorf "reset offset assignments: %s with error: %s" assignments error)
-      (let [executed (shell/with-sh-dir (config/env :kafka-command-line-dir) (apply shell/sh command "-execute"))]
+      (let [executed (shell/with-sh-dir (config/env :kafka-command-line-dir) (apply shell/sh (concat command ["-execute"])))]
         (log/debugf "executed reset offsets: %s \nfor group-id: %s\ntopic: %s\npartitions-comma-str: %s" (:out executed) group-id topic partitions-comma-str)))))
 
 ;;==================AdminClient approach: not working===============
