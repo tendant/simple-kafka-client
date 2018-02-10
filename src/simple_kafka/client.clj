@@ -7,7 +7,7 @@
                     InputStreamReader
                     OutputStreamWriter)
            (org.apache.kafka.clients.producer KafkaProducer ProducerRecord)
-           (org.apache.kafka.clients.consumer KafkaConsumer ConsumerRecord ConsumerRecords)))
+           (org.apache.kafka.clients.consumer KafkaConsumer ConsumerConfig ConsumerRecord ConsumerRecords)))
 
 (defn- make-properties [map]
   (log/debug "Properties:" map)
@@ -26,6 +26,13 @@
    ;; `max.poll.interval.ms` is restricted by `request.timeout.ms`
    ;; configuration in kafka brokers.
    "max.poll.interval.ms" "30000"
+
+   ;; What to do when there is no initial offset in Kafka or if an offset is out of range:
+   ;; earliest: automatically reset the offset to the earliest offset
+   ;; latest: automatically reset the offset to the latest offset
+   ;; none: throw exception to the consumer if no previous offset is found or the consumer's group
+   ;; anything else: throw exception to the consumer.
+   ConsumerConfig/AUTO_OFFSET_RESET_CONFIG "earliest"
 
 })
 
