@@ -16,15 +16,22 @@
 (def ^:private default-kafka-consumer-properties
   {;; DO NOT USE. if use, be aware, long timeout will delay broker
    ;; detects client error and delay partition rebalance
-   ;; "session.timeout.ms" "51000"
+   "session.timeout.ms" "10000"
+
+   ;; request.timeout.ms must always be larger than
+   ;; max.poll.interval.ms because this is the maximum time that a
+   ;; JoinGroup request can block on the server while the consumer is
+   ;; rebalancing
    "request.timeout.ms" "31000"
 
    "max.poll.records" "5"
+
    ;; Maximum allowed time for a batch to complete processing and
    ;; commit offset. While working on long running job, try to
    ;; increase `max.poll.interval.ms` and decrease `max.poll.records`,
    ;; `max.poll.interval.ms` is restricted by `request.timeout.ms`
    ;; configuration in kafka brokers.
+   ;; https://cwiki.apache.org/confluence/display/KAFKA/KIP-62%3A+Allow+consumer+to+send+heartbeats+from+a+background+thread
    "max.poll.interval.ms" "30000"
 
    ;; What to do when there is no initial offset in Kafka or if an offset is out of range:
@@ -86,7 +93,7 @@
          (.send producer))))
 
 (defn start-job
-  ([bootstrap-servers kafka-group-id topic-name process-fn opts]
+  ([bootstrap-servers kafka-group-id topic-name process-fn ex-fn opts]
    (let [consumer (make-consumer bootstrap-servers kafka-group-id opts)
          topics (cond
                   (string? topic-name) [topic-name]
@@ -112,9 +119,13 @@
                                                                 :record record})))))
              (.commitSync consumer))))
        (catch Exception ex
-         (log/error ex "caught exception, processing topics:%s." topics))
+         (log/error ex "caught exception, processing topics:%s." topics)
+         (if ex-fn
+           (ex-fn ex)))
        (finally
          (.unsubscribe consumer)
          (System/exit 1)))))
   ([bootstrap-servers kafka-group-id topic-name process-fn]
-   (start-job bootstrap-servers kafka-group-id topic-name process-fn nil)))
+   (start-job bootstrap-servers kafka-group-id topic-name process-fn nil nil))
+  ([bootstrap-servers kafka-group-id topic-name process-fn opts]
+   (start-job bootstrap-servers kafka-group-id topic-name process-fn nil opts)))
