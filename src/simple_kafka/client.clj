@@ -106,17 +106,15 @@
            (when-not (.isEmpty records)
              (doseq [^ConsumerRecord record records
                      :let [topic (.topic record)
+                           partition (.partition record)
                            offset (.offset record)
                            key (.key record)
                            value (deserialize (.value record))]]
                (try
                  (process-fn key value)
                  (catch Exception ex
-                   (log/errorf ex "Failed processing group: %s, topic: %s, offset: %s, value: %s." kafka-group-id topic offset value)
-                   (throw (ex-info "Failed processing record:" {:group kafka-group-id
-                                                                :topic topic
-                                                                :offset offset
-                                                                :record record})))))
+                   (log/errorf ex "Failed processing group: %s, topic: %s, partition: %s, offset: %s, value: %s." kafka-group-id topic partition offset value)
+                   (throw ex))))
              (.commitSync consumer))))
        (catch Exception ex
          (log/error ex "caught exception, processing topics:%s." topics)
