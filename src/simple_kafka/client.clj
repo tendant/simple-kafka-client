@@ -100,16 +100,21 @@
                   (coll? topic-name) topic-name)]
      (log/info "start-job topics:" topics (type topics))
      (try
+       (log/info "start-job subscribing...")
        (.subscribe consumer topics)
+       (log/info "start-job subscribed!")
        (while true
          (let [^ConsumerRecords records (.poll consumer Long/MAX_VALUE)]
+           (log/debug "start-job poll...")
            (when-not (.isEmpty records)
+             (log/debug "start-job found records!")
              (doseq [^ConsumerRecord record records
                      :let [topic (.topic record)
                            partition (.partition record)
                            offset (.offset record)
                            key (.key record)
                            value (deserialize (.value record))]]
+               (log/debug "start-job start processing...")
                (try
                  (process-fn key value)
                  (catch Exception ex
