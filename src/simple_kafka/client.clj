@@ -43,6 +43,20 @@
 
 })
 
+;; serializer in org.apache.kafka.common.serialization:
+;;
+;; ByteArrayDeserializer
+;;
+;; ByteArraySerializer
+;;
+;; StringDeserializer String encoding defaults to UTF8 and can be
+;; customized by setting the property key.deserializer.encoding,
+;; value.deserializer.encoding or deserializer.encoding.
+;;
+;; StringSerializer String encoding defaults to UTF8 and can be
+;; customized by setting the property key.serializer.encoding,
+;; value.serializer.encoding or serializer.encoding.
+
 (defn- make-consumer
   ([bootstrap-servers kafka-group-id opts]
    (-> (merge default-kafka-consumer-properties
@@ -50,8 +64,8 @@
               {"bootstrap.servers" bootstrap-servers
                "group.id" kafka-group-id
                "enable.auto.commit" "false"
-               "key.deserializer" "org.apache.kafka.common.serialization.ByteArrayDeserializer"
-               "value.deserializer" "org.apache.kafka.common.serialization.ByteArrayDeserializer"})
+               "key.deserializer" "org.apache.kafka.common.serialization.StringDeserializer"
+               "value.deserializer" "org.apache.kafka.common.serialization.StringDeserializer"})
        (make-properties)
        (KafkaConsumer.)))
   ([bootstrap-servers kafka-group-id]
@@ -62,8 +76,8 @@
        "acks" "all"
        "linger.ms" "1"
        "buffer.memory" "4194304"
-       "key.serializer" "org.apache.kafka.common.serialization.ByteArraySerializer"
-       "value.serializer" "org.apache.kafka.common.serialization.ByteArraySerializer"}
+       "key.serializer" "org.apache.kafka.common.serialization.StringSerializer"
+       "value.serializer" "org.apache.kafka.common.serialization.StringSerializer"}
       (make-properties)
       (KafkaProducer.))) ;; json-serializer json-serializer)))
 
@@ -73,12 +87,9 @@
   "Deserialize bytes data as JSON, when failure, it will log as error and return nil"
   [^bytes data]
   (if (and data (pos? (alength data)))
-    (try
-      (-> (ByteArrayInputStream. data)
-          (InputStreamReader. utf-8)
-          (json/read :key-fn keyword))
-      (catch Exception e
-        (log/error e "Failed deserialize data:" data)))))
+    (-> (ByteArrayInputStream. data)
+        (InputStreamReader. utf-8)
+        (json/read :key-fn keyword))))
 
 (defn serialize [obj]
   (let [baos (ByteArrayOutputStream.)]
@@ -88,7 +99,7 @@
 
 (defn send-record [producer topic-name k v]
   (if v
-    (->> (serialize v)
+    (->> v ;(serialize v)
          (ProducerRecord. topic-name k)
          (.send producer))))
 
@@ -115,26 +126,29 @@
            (log/debug "start-job poll...")
            (when-not (.isEmpty records)
              (log/debug "start-job found records!")
-             (doseq [^ConsumerRecord record records
-                     :let [topic (.topic record)
-                           partition (.partition record)
-                           offset (.offset record)
-                           key (.key record)
-                           value (deserialize (.value record))]]
-               (log/debug "start-job start processing...")
-               (try
-                 (when-let [result (process-fn key value)]
-                   (send-record producer to-topic nil result))
-                 (catch Exception ex
-                   (log/errorf ex "Failed processing group: %s, topic: %s, partition: %s, offset: %s, value: %s." kafka-group-id topic partition offset value)
-                   ;; Forward record to error-topic
-                   ;; TODO: add error information and possible retry count
-                   (send-record producer error-topic key {:kafka-group-id kafka-group-id
-                                                          :from-topic from-topic
-                                                          :to-topic to-topic
-                                                          :error-topic error-topic
-                                                          :key key
-                                                          :value value}))))
+             (doseq [^ConsumerRecord record records]
+               (let [topic (.topic record)
+                     partition (.partition record)
+                     offset (.offset record)
+                     key (.key record)
+                     value (.value record) ; (deserialize (.value record))
+                     ]
+                 (log/debug "start-job start processing...")
+                 (try
+                   (when-let [result (process-fn key value)]
+                     (send-record producer to-topic nil result))
+                   (catch Exception ex
+                     (log/errorf ex "Failed processing group: %s, topic: %s, partition: %s, offset: %s, value: %s." kafka-group-id topic partition offset value)
+                     ;; Forward record to error-topic
+                     ;; TODO: add error information and possible retry count
+                     (if error-topic
+                       (send-record producer error-topic key {:kafka-group-id kafka-group-id
+                                                              :from-topic from-topic
+                                                              :to-topic to-topic
+                                                              :error-topic error-topic
+                                                              :key key
+                                                              :value value}))))))
+             ;;; IMPORTANT: Only commit offset when all records are done.
              (.commitSync consumer))))
        (catch Exception ex
          (log/error ex "caught exception, processing topics:%s." topics)
