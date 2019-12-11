@@ -93,12 +93,19 @@
          (.send producer))))
 
 (defn start-job
-  ([bootstrap-servers kafka-group-id topic-name process-fn ex-fn opts]
+  ([bootstrap-servers kafka-group-id from-topic to-topic error-topic process-fn ex-fn opts]
    (let [consumer (make-consumer bootstrap-servers kafka-group-id opts)
-         topics (cond
-                  (string? topic-name) [topic-name]
-                  (coll? topic-name) topic-name)]
-     (log/info "start-job topics:" topics (type topics))
+         producer (make-producer bootstrap-servers)
+         topics [from-topic]]
+     ;; from-topic is required
+     ;;
+     ;; to-topic is not required
+     ;;
+     ;; error-topic is required for non-error handling job, it should
+     ;; be null for error handling job to prevent possible infinite
+     ;; loop.
+     ;;
+     (log/info "start-job topics:" from-topic, to-topic, error-topic)
      (try
        (log/info "start-job subscribing...")
        (.subscribe consumer topics)
@@ -116,10 +123,18 @@
                            value (deserialize (.value record))]]
                (log/debug "start-job start processing...")
                (try
-                 (process-fn key value)
+                 (when-let [result (process-fn key value)]
+                   (send-record producer to-topic nil result))
                  (catch Exception ex
                    (log/errorf ex "Failed processing group: %s, topic: %s, partition: %s, offset: %s, value: %s." kafka-group-id topic partition offset value)
-                   (throw ex))))
+                   ;; Forward record to error-topic
+                   ;; TODO: add error information and possible retry count
+                   (send-record producer error-topic key {:kafka-group-id kafka-group-id
+                                                          :from-topic from-topic
+                                                          :to-topic to-topic
+                                                          :error-topic error-topic
+                                                          :key key
+                                                          :value value}))))
              (.commitSync consumer))))
        (catch Exception ex
          (log/error ex "caught exception, processing topics:%s." topics)
@@ -127,8 +142,4 @@
            (ex-fn ex)))
        (finally
          (.unsubscribe consumer)
-         (System/exit 1)))))
-  ([bootstrap-servers kafka-group-id topic-name process-fn]
-   (start-job bootstrap-servers kafka-group-id topic-name process-fn nil nil))
-  ([bootstrap-servers kafka-group-id topic-name process-fn opts]
-   (start-job bootstrap-servers kafka-group-id topic-name process-fn nil opts)))
+         (System/exit 1))))))
