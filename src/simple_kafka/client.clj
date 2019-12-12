@@ -59,18 +59,18 @@
 ;; value.serializer.encoding or serializer.encoding.
 
 (defn- make-consumer
-  ([bootstrap-servers kafka-group-id opts]
+  ([bootstrap-servers group-id opts]
    (-> (merge default-kafka-consumer-properties
               opts
               {"bootstrap.servers" bootstrap-servers
-               "group.id" kafka-group-id
+               "group.id" group-id
                "enable.auto.commit" "false"
                "key.deserializer" "org.apache.kafka.common.serialization.StringDeserializer"
                "value.deserializer" "org.apache.kafka.common.serialization.StringDeserializer"})
        (make-properties)
        (KafkaConsumer.)))
-  ([bootstrap-servers kafka-group-id]
-   (make-consumer bootstrap-servers kafka-group-id nil))) ;; json-deserializer json-deserializer)))
+  ([bootstrap-servers group-id]
+   (make-consumer bootstrap-servers group-id nil))) ;; json-deserializer json-deserializer)))
 
 (defn make-producer [bootstrap-servers]
   (-> {"bootstrap.servers" bootstrap-servers
@@ -105,8 +105,8 @@
          (.send producer))))
 
 (defn start-job
-  ([bootstrap-servers kafka-group-id from-topic to-topic error-topic process-fn ex-fn opts]
-   (let [consumer (make-consumer bootstrap-servers kafka-group-id opts)
+  ([bootstrap-servers group-id from-topic to-topic error-topic process-fn ex-fn opts]
+   (let [consumer (make-consumer bootstrap-servers group-id opts)
          producer (make-producer bootstrap-servers)
          topics [from-topic]]
      ;; from-topic is required
@@ -141,11 +141,11 @@
                        (send-record producer to-topic nil result)
                        (log/warn "Process function returned a result, to-topic is not setup yet. This might be a bug!")))
                    (catch Exception ex
-                     (log/errorf ex "Failed processing group: %s, topic: %s, partition: %s, offset: %s, value: %s." kafka-group-id topic partition offset value)
+                     (log/errorf ex "Failed processing group: %s, topic: %s, partition: %s, offset: %s, value: %s." group-id topic partition offset value)
                      ;; Forward record to error-topic
                      ;; TODO: add error information and possible retry count
                      (if error-topic
-                       (send-record producer error-topic key {:kafka-group-id kafka-group-id
+                       (send-record producer error-topic key {:group-id group-id
                                                               :from-topic from-topic
                                                               :to-topic to-topic
                                                               :error-topic error-topic
