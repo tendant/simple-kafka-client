@@ -44,6 +44,7 @@
 })
 
 ;; serializer in org.apache.kafka.common.serialization:
+;; https://kafka.apache.org/082/javadoc/org/apache/kafka/common/serialization/package-summary.html
 ;;
 ;; ByteArrayDeserializer
 ;;
@@ -136,7 +137,9 @@
                  (log/debug "start-job start processing...")
                  (try
                    (when-let [result (process-fn key value)]
-                     (send-record producer to-topic nil result))
+                     (if to-topic
+                       (send-record producer to-topic nil result)
+                       (log/warn "Process function returned a result, to-topic is not setup yet. This might be a bug!")))
                    (catch Exception ex
                      (log/errorf ex "Failed processing group: %s, topic: %s, partition: %s, offset: %s, value: %s." kafka-group-id topic partition offset value)
                      ;; Forward record to error-topic
@@ -147,7 +150,9 @@
                                                               :to-topic to-topic
                                                               :error-topic error-topic
                                                               :key key
-                                                              :value value}))))))
+                                                              :value value})
+                       (throw (ex-info "error-topic is not configured. For non-error handling job error-topic is required. For error handling job, error-topic should be nil and please fix the issue which caused exception."
+                                       {:exception ex})))))))
              ;;; IMPORTANT: Only commit offset when all records are done.
              (.commitSync consumer))))
        (catch Exception ex
