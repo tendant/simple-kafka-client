@@ -82,6 +82,8 @@
       (make-properties)
       (KafkaProducer.))) ;; json-serializer json-serializer)))
 
+(def make-producer-memoize (memoize make-producer))
+
 (def ^:private utf-8 (java.nio.charset.Charset/forName "utf-8"))
 
 (defn deserialize
