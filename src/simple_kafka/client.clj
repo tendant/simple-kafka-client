@@ -138,7 +138,7 @@
                      ]
                  (log/debug "start-job start processing...")
                  (try
-                   (when-let [result (process-fn key value)]
+                   (when-let [result (process-fn {:k key :v value :record record})]
                      (if to-topic
                        (send-record producer to-topic nil result)
                        (log/warn "Process function returned a result, to-topic is not setup yet. This might be a bug!")))
