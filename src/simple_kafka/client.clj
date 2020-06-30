@@ -144,6 +144,8 @@
                        (log/warn "Process function returned a result, to-topic is not setup yet. This might be a bug!")))
                    (catch Exception ex
                      (log/errorf ex "Failed processing group: %s, topic: %s, partition: %s, offset: %s, value: %s." group-id topic partition offset value)
+                     (if ex-fn
+                       (ex-fn ex))
                      ;; Forward record to error-topic
                      ;; TODO: add error information and possible retry count
                      (if error-topic
