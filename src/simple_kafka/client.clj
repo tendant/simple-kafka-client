@@ -119,7 +119,9 @@
      ;; be null for error handling job to prevent possible infinite
      ;; loop.
      ;;
-     (log/info "start-job topics:" from-topic, to-topic, error-topic)
+     (log/info "start-job from-topic:" from-topic)
+     (log/info "start-job to-topic:" to-topic)
+     (log/info "start-job error-topic:" error-topic)
      (try
        (log/info "start-job subscribing...")
        (.subscribe consumer topics)
