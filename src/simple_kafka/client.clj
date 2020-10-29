@@ -106,6 +106,11 @@
          (ProducerRecord. topic-name k)
          (.send producer))))
 
+(defn parse-comma-str [str]
+  (when (not (clojure.string/blank? str))
+    (->> (clojure.string/split str #",")
+         (map clojure.string/trim))))
+
 (defn start-job
   ([bootstrap-servers group-id from-topic to-topic error-topic process-fn ex-fn opts]
    (let [consumer (make-consumer bootstrap-servers group-id opts)
@@ -141,8 +146,9 @@
                  (log/debug "start-job start processing...")
                  (try
                    (when-let [result (process-fn {:k key :v value :record record})]
-                     (if to-topic
-                       (send-record producer to-topic nil result)
+                     (if-let [ts (parse-comma-str to-topic)]
+                       (doseq [t ts]
+                         (send-record producer t nil result))
                        (log/warn "Process function returned a result, to-topic is not setup yet. This might be a bug!")))
                    (catch Exception ex
                      (log/errorf ex "Failed processing group: %s, topic: %s, partition: %s, offset: %s, value: %s." group-id topic partition offset value)
