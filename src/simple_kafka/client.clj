@@ -112,20 +112,20 @@
          (map clojure.string/trim))))
 
 (defn start-job
-  ([bootstrap-servers group-id from-topic to-topic error-topic process-fn ex-fn opts]
+  ([bootstrap-servers group-id from-topics error-topic process-fn ex-fn opts]
    (let [consumer (make-consumer bootstrap-servers group-id opts)
          producer (make-producer bootstrap-servers)
-         topics [from-topic]]
-     ;; from-topic is required
-     ;;
-     ;; to-topic is not required
+         topics (cond
+                  (string? from-topics) [from-topics]
+                  (col? from-topics) from-topics
+                  :else (throw (ex-info "from-topics should be either string or collection of string!" {:from-topics from-topics})))]
+     ;; from-topics is required
      ;;
      ;; error-topic is required for non-error handling job, it should
      ;; be null for error handling job to prevent possible infinite
      ;; loop.
      ;;
-     (log/info "start-job from-topic:" from-topic)
-     (log/info "start-job to-topic:" to-topic)
+     (log/info "start-job from-topics:" from-topics)
      (log/info "start-job error-topic:" error-topic)
      (try
        (log/info "start-job subscribing...")
@@ -141,15 +141,14 @@
                      partition (.partition record)
                      offset (.offset record)
                      key (.key record)
-                     value (.value record) ; (deserialize (.value record))
-                     ]
+                     value (.value record)] ; (deserialize (.value record))
                  (log/debug "start-job start processing...")
                  (try
-                   (when-let [result (process-fn {:k key :v value :record record})]
-                     (if-let [ts (parse-comma-str to-topic)]
-                       (doseq [t ts]
-                         (send-record producer t nil result))
-                       (log/warn "Process function returned a result, to-topic is not setup yet. This might be a bug!")))
+                   (when-let [records (process-fn {:k key :v value :record record})]
+                     (doseq [r records]
+                       (if-let [to-topic (:to-topic r)]
+                         (send-record producer to-topic nil r)
+                         (log/warn "Process function returned a record without :to-topic. This might be a bug!"))))
                    (catch Exception ex
                      (log/errorf ex "Failed processing group: %s, topic: %s, partition: %s, offset: %s, value: %s." group-id topic partition offset value)
                      (if ex-fn
@@ -158,8 +157,7 @@
                      ;; TODO: add error information and possible retry count
                      (if error-topic
                        (send-record producer error-topic key (json/write-str {:group-id group-id
-                                                                              :from-topic from-topic
-                                                                              :to-topic to-topic
+                                                                              :from-topics from-topics
                                                                               :error-topic error-topic
                                                                               :key key
                                                                               :value value}))
