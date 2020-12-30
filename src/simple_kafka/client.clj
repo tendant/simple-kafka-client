@@ -117,7 +117,7 @@
          producer (make-producer bootstrap-servers)
          topics (cond
                   (string? from-topics) [from-topics]
-                  (col? from-topics) from-topics
+                  (coll? from-topics) from-topics
                   :else (throw (ex-info "from-topics should be either string or collection of string!" {:from-topics from-topics})))]
      ;; from-topics is required
      ;;
@@ -152,7 +152,7 @@
                    (catch Exception ex
                      (log/errorf ex "Failed processing group: %s, topic: %s, partition: %s, offset: %s, value: %s." group-id topic partition offset value)
                      (if ex-fn
-                       (ex-fn ex))
+                       (ex-fn ex {:record record}))
                      ;; Forward record to error-topic
                      ;; TODO: add error information and possible retry count
                      (if error-topic
@@ -168,7 +168,7 @@
        (catch Exception ex
          (log/error ex "caught exception, processing topics:%s." topics)
          (if ex-fn
-           (ex-fn ex)))
+           (ex-fn ex {})))
        (finally
          (.unsubscribe consumer)
          (System/exit 1))))))
