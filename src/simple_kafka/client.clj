@@ -144,10 +144,10 @@
                      value (.value record)] ; (deserialize (.value record))
                  (log/debug "start-job start processing...")
                  (try
-                   (when-let [records (process-fn {:k key :v value :record record})]
-                     (doseq [r records]
-                       (if-let [to-topic (:to-topic r)]
-                         (send-record producer to-topic nil r)
+                   (when-let [results (process-fn {:k key :v value :record record})]
+                     (doseq [result results]
+                       (if-let [to-topic (:to-topic result)]
+                         (send-record producer to-topic nil (:record result))
                          (log/warn "Process function returned a record without :to-topic. This might be a bug!"))))
                    (catch Exception ex
                      (log/errorf ex "Failed processing group: %s, topic: %s, partition: %s, offset: %s, value: %s." group-id topic partition offset value)
