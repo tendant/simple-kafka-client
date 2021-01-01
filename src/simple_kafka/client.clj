@@ -132,18 +132,18 @@
        (.subscribe consumer topics)
        (log/info "start-job subscribed!")
        (while true
-         (log/info "start-job poll...")
+         (log/info "polling...")
          (let [^ConsumerRecords records (.poll consumer consumer-poll-timeout-seconds)]
-           (log/info "Polled records: empty?:" (.isEmpty records))
+           (log/debug "Polled records: empty?:" (.isEmpty records))
            (when-not (.isEmpty records)
-             (log/info "start-job found records!")
+             (log/debug "Found records!")
              (doseq [^ConsumerRecord record records]
                (let [topic (.topic record)
                      partition (.partition record)
                      offset (.offset record)
                      key (.key record)
                      value (.value record)] ; (deserialize (.value record))
-                 (log/info "start-job start processing...")
+                 (log/info "Start processing...")
                  (try
                    (when-let [results (process-fn {:k key :v value :record record})]
                      (doseq [result results]
