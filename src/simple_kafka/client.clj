@@ -1,13 +1,14 @@
 (ns simple-kafka.client
   (:require [taoensso.timbre :as log]
             [clojure.data.json :as json])
-  (:import (java.util Properties)
-           (java.io ByteArrayInputStream
-                    ByteArrayOutputStream
-                    InputStreamReader
-                    OutputStreamWriter)
-           (org.apache.kafka.clients.producer KafkaProducer ProducerRecord)
-           (org.apache.kafka.clients.consumer KafkaConsumer ConsumerConfig ConsumerRecord ConsumerRecords)))
+  (:import [java.util Properties]
+           [java.time Duration]
+           [java.io ByteArrayInputStream
+            ByteArrayOutputStream
+            InputStreamReader
+            OutputStreamWriter]
+           [org.apache.kafka.clients.producer KafkaProducer ProducerRecord]
+           [org.apache.kafka.clients.consumer KafkaConsumer ConsumerConfig ConsumerRecord ConsumerRecords]))
 
 (defn- make-properties [map]
   (log/debug "Properties:" map)
@@ -39,9 +40,7 @@
    ;; latest: automatically reset the offset to the latest offset
    ;; none: throw exception to the consumer if no previous offset is found or the consumer's group
    ;; anything else: throw exception to the consumer.
-   ConsumerConfig/AUTO_OFFSET_RESET_CONFIG "earliest"
-
-})
+   ConsumerConfig/AUTO_OFFSET_RESET_CONFIG "earliest"})
 
 ;; serializer in org.apache.kafka.common.serialization:
 ;; https://kafka.apache.org/082/javadoc/org/apache/kafka/common/serialization/package-summary.html
@@ -116,9 +115,10 @@
    (let [consumer (make-consumer bootstrap-servers group-id opts)
          producer (make-producer bootstrap-servers)
          topics (cond
-                  (string? from-topics) [from-topics]
-                  (coll? from-topics) from-topics
-                  :else (throw (ex-info "from-topics should be either string or collection of string!" {:from-topics from-topics})))]
+                  (string? from-topics) (java.util.ArrayList. [from-topics])
+                  (coll? from-topics) (java.util.ArrayList. from-topics)
+                  :else (throw (ex-info "from-topics should be either string or collection of string!" {:from-topics from-topics})))
+         consumer-poll-timeout-seconds (Duration/ofSeconds (* 60 60 1))]
      ;; from-topics is required
      ;;
      ;; error-topic is required for non-error handling job, it should
@@ -128,21 +128,22 @@
      (log/info "start-job from-topics:" from-topics)
      (log/info "start-job error-topic:" error-topic)
      (try
-       (log/info "start-job subscribing...")
+       (log/info "start-job subscribing:" topics)
        (.subscribe consumer topics)
        (log/info "start-job subscribed!")
        (while true
-         (let [^ConsumerRecords records (.poll consumer Long/MAX_VALUE)]
-           (log/debug "start-job poll...")
+         (log/info "start-job poll...")
+         (let [^ConsumerRecords records (.poll consumer consumer-poll-timeout-seconds)]
+           (log/info "Polled records: empty?:" (.isEmpty records))
            (when-not (.isEmpty records)
-             (log/debug "start-job found records!")
+             (log/info "start-job found records!")
              (doseq [^ConsumerRecord record records]
                (let [topic (.topic record)
                      partition (.partition record)
                      offset (.offset record)
                      key (.key record)
                      value (.value record)] ; (deserialize (.value record))
-                 (log/debug "start-job start processing...")
+                 (log/info "start-job start processing...")
                  (try
                    (when-let [results (process-fn {:k key :v value :record record})]
                      (doseq [result results]
