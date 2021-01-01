@@ -1,4 +1,4 @@
-(defproject tendant/simple-kafka-client "0.4.1"
+(defproject tendant/simple-kafka-client "0.4.2"
   :description "Not another kafka client libary, instead this is a collection of functions for building kafka client in Clojure."
   :url "https://github.com/tendant/simple-kafka-client"
   :license {:name "Eclipse Public License"
