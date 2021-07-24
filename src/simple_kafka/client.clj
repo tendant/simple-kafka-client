@@ -157,12 +157,14 @@
                      ;; Forward record to error-topic
                      ;; TODO: add error information and possible retry count
                      (if error-topic
-                       (send-record producer error-topic key (json/write-str {:group-id group-id
-                                                                              :from-topics from-topics
-                                                                              :error-topic error-topic
-                                                                              :key key
+                       (send-record producer error-topic key (json/write-str {:__meta {:group-id group-id
+                                                                                       :from-topic from-topics
+                                                                                       :to-topic to-topic
+                                                                                       :error-topic error-topic
+                                                                                       :created-at (java.time.LocalDateTime/now)
+                                                                                       :key key}
                                                                               :value value}))
-                       (throw (ex-info "error-topic is not configured. For non-error handling job error-topic is required. For error handling job, error-topic should be nil and please fix the issue which caused exception."
+                       (throw (ex-info "error-topic is not configured. When error-topic is not configured, job will be blocked(per topic patition). For error handling job, error-topic should be NIL and please fix the issue which caused exception."
                                        {:exception ex})))))))
              ;;; IMPORTANT: Only commit offset when all records are done.
              (.commitSync consumer))))
