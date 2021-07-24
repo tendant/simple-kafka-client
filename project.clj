@@ -5,6 +5,6 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.10.0"]
                  [org.apache.kafka/kafka-clients "2.7.0"]
-                 [org.clojure/data.json "1.0.0"]
-                 [yogthos/config "0.9"]]
+                 [org.clojure/data.json "2.4.0"]
+                 [yogthos/config "1.1.8"]]
   :aliases {"utils" ["run" "-m" "simple-kafka.util"]})
