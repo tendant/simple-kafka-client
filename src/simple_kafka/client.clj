@@ -158,7 +158,7 @@
                      ;; TODO: add error information and possible retry count
                      (if error-topic
                        (send-record producer error-topic key (json/write-str {:__meta {:group-id group-id
-                                                                                       :from-topic from-topics
+                                                                                       :from-topics from-topics
                                                                                        :to-topic to-topic
                                                                                        :error-topic error-topic
                                                                                        :created-at (java.time.LocalDateTime/now)
