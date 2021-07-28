@@ -159,7 +159,6 @@
                      (if error-topic
                        (send-record producer error-topic key (json/write-str {:__meta {:group-id group-id
                                                                                        :from-topics from-topics
-                                                                                       :to-topic to-topic
                                                                                        :error-topic error-topic
                                                                                        :created-at (java.time.LocalDateTime/now)
                                                                                        :key key}
