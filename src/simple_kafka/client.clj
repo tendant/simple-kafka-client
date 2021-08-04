@@ -1,6 +1,6 @@
 (ns simple-kafka.client
   (:require [taoensso.timbre :as log]
-            [clojure.data.json :as json])
+            [cheshire.core :as json])
   (:import [java.util Properties]
            [java.time Duration]
            [java.io ByteArrayInputStream
@@ -91,12 +91,12 @@
   (if (and data (pos? (alength data)))
     (-> (ByteArrayInputStream. data)
         (InputStreamReader. utf-8)
-        (json/read :key-fn keyword))))
+        (json/decode true))))
 
 (defn serialize [obj]
   (let [baos (ByteArrayOutputStream.)]
     (with-open [w (OutputStreamWriter. baos utf-8)]
-      (json/write obj w))
+      (json/encode-stream obj w))
     (.toByteArray baos)))
 
 (defn send-record [producer topic-name k v]
@@ -157,12 +157,12 @@
                      ;; Forward record to error-topic
                      ;; TODO: add error information and possible retry count
                      (if error-topic
-                       (send-record producer error-topic key (json/write-str {:__meta {:group-id group-id
-                                                                                       :from-topics from-topics
-                                                                                       :error-topic error-topic
-                                                                                       :created-at (java.time.LocalDateTime/now)
-                                                                                       :key key}
-                                                                              :value value}))
+                       (send-record producer error-topic key (json/encode {:__meta {:group-id group-id
+                                                                                    :from-topics from-topics
+                                                                                    :error-topic error-topic
+                                                                                    :created-at (java.util.Date.)
+                                                                                    :key key}
+                                                                           :value value}))
                        (throw (ex-info "error-topic is not configured. When error-topic is not configured, job will be blocked(per topic patition). For error handling job, error-topic should be NIL and please fix the issue which caused exception."
                                        {:exception ex})))))))
              ;;; IMPORTANT: Only commit offset when all records are done.
